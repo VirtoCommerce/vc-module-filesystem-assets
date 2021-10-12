@@ -21,6 +21,7 @@
   <assemblyFile>VirtoCommerce.FileSystemAssetsModule.Web.dll</assemblyFile>
   <moduleType>VirtoCommerce.FileSystemAssetsModule.Web.Module, VirtoCommerce.FileSystemAssetsModule.Web</moduleType>
     <dependencies>
+      <dependency id="VirtoCommerce.Assets" version="3.0.0" />
     </dependencies>
   <groups>
     <group></group>
