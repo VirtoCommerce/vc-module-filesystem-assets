@@ -10,7 +10,7 @@ using VirtoCommerce.FileSystemAssetsModule.Web.Extensions;
 
 namespace VirtoCommerce.FileSystemAssetsModule.Web
 {
-    public class Module : IModule
+    public class Module : IModule, IHasConfiguration
     {
         public IConfiguration Configuration { get; set; }
         public ManifestModuleInfo ModuleInfo { get; set; }
