@@ -13,7 +13,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 {
     public class FileSystemBlobProvider : BasicBlobProvider, IBlobStorageProvider, IBlobUrlResolver
     {
-        public const string ProviderName = "LocalStorage";
+        public const string ProviderName = "FileSystem";
 
         private readonly string _storagePath;
         private readonly string _basePublicUrl;
