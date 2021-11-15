@@ -1,8 +1,9 @@
+using Microsoft.Extensions.Options;
 using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Options;
+using VirtoCommerce.Assets.Abstractions;
 using VirtoCommerce.AssetsModule.Core.Assets;
 using VirtoCommerce.Platform.Core;
 using VirtoCommerce.Platform.Core.Common;
@@ -11,7 +12,7 @@ using VirtoCommerce.Platform.Core.Settings;
 
 namespace VirtoCommerce.FileSystemAssetsModule.Core
 {
-    public class FileSystemBlobProvider : BasicBlobProvider, IBlobStorageProvider, IBlobUrlResolver
+    public class FileSystemBlobProvider : BasicBlobProvider, IBlobStorageProvider, IBlobUrlResolver, ICommonBlobProvider
     {
         public const string ProviderName = "FileSystem";
 
@@ -26,6 +27,21 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             _basePublicUrl = options.Value.PublicUrl;
             _basePublicUrl = _basePublicUrl?.TrimEnd('/');
         }
+
+        #region ICommonBlobProvider members
+
+        public bool Exists(string blobUrl)
+        {
+            return ExistsAsync(blobUrl).GetAwaiter().GetResult();
+        }
+
+        public async Task<bool> ExistsAsync(string blobUrl)
+        {
+            var blobInfo = await GetBlobInfoAsync(blobUrl);
+            return blobInfo != null;
+        }
+
+        #endregion ICommonBlobProvider members
 
         #region IBlobStorageProvider members
 
