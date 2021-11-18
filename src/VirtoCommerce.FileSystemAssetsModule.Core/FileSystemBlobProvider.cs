@@ -340,7 +340,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             var result = _basePublicUrl + "/" + path.Replace(_storagePath, string.Empty)
                              .TrimStart(Path.DirectorySeparatorChar)
                              .Replace(Path.DirectorySeparatorChar, '/');
-            return Uri.EscapeUriString(result);
+            return Uri.EscapeDataString(result);
         }
 
         protected string GetStoragePathFromUrl(string url)
