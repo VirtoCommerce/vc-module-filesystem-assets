@@ -340,7 +340,10 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             var result = _basePublicUrl + "/" + path.Replace(_storagePath, string.Empty)
                              .TrimStart(Path.DirectorySeparatorChar)
                              .Replace(Path.DirectorySeparatorChar, '/');
+#pragma warning disable SYSLIB0013 // Type or member is obsolete
+            // Unfortunately, no replacement for this call. We should consider to remove this call at all.
             return Uri.EscapeUriString(result);
+#pragma warning restore SYSLIB0013 // Type or member is obsolete
         }
 
         protected string GetStoragePathFromUrl(string url)
