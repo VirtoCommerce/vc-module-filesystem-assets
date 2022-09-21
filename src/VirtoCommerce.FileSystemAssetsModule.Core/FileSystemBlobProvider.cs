@@ -71,6 +71,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 result.ContentType = MimeTypeResolver.ResolveContentType(fileInfo.Name);
                 result.Size = fileInfo.Length;
                 result.Name = fileInfo.Name;
+                result.CreatedDate = fileInfo.CreationTimeUtc;
                 result.ModifiedDate = fileInfo.LastWriteTimeUtc;
                 result.RelativeUrl = GetRelativeUrl(result.Url);
             }
@@ -156,6 +157,8 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 folder.Url = GetAbsoluteUrlFromPath(directory);
                 folder.ParentUrl = GetAbsoluteUrlFromPath(directoryInfo.Parent?.FullName);
                 folder.RelativeUrl = GetRelativeUrl(folder.Url);
+                folder.CreatedDate = directoryInfo.CreationTimeUtc;
+                folder.ModifiedDate = directoryInfo.LastWriteTimeUtc;
                 result.Results.Add(folder);
             }
 
@@ -169,6 +172,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 blobInfo.ContentType = MimeTypeResolver.ResolveContentType(fileInfo.Name);
                 blobInfo.Size = fileInfo.Length;
                 blobInfo.Name = fileInfo.Name;
+                blobInfo.CreatedDate = fileInfo.CreationTimeUtc;
                 blobInfo.ModifiedDate = fileInfo.LastWriteTimeUtc;
                 blobInfo.RelativeUrl = GetRelativeUrl(blobInfo.Url);
                 result.Results.Add(blobInfo);
