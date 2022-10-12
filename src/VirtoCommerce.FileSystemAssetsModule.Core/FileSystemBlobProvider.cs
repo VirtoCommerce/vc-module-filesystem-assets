@@ -369,7 +369,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             }
 
             // escape filename separately
-            // 'new Uri(fileName).ToString()', it has the same corruption issues than 'Uri.EscapeUriString()'
+            // 'new Uri(fileName).ToString()' has the same corruption issues that 'Uri.EscapeUriString()' has
             var escapedFileName = Uri.EscapeDataString(fileName);
 
             if (!basePath.EndsWith('/'))
