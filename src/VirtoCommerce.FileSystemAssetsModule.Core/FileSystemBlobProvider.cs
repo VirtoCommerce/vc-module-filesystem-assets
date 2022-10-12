@@ -377,12 +377,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 basePath = $"{basePath}/";
             }
 
-            basePath = $"{basePath}{escapedFileName}";
-            return basePath;
-
-            //var fullUrl = new Uri(new Uri(basePath), escapedFileName);
-            //var result = fullUrl.ToString();
-            //return result;
+            return $"{basePath}{escapedFileName}";
         }
 
         protected string GetStoragePathFromUrl(string url)
