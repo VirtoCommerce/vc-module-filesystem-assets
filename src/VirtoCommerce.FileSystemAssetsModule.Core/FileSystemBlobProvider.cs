@@ -67,7 +67,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 var fileInfo = new FileInfo(filePath);
 
                 result = AbstractTypeFactory<BlobInfo>.TryCreateInstance();
-                result.Url = GetAbsoluteUrl(fileInfo.DirectoryName, fileInfo.Name);
+                result.Url = GetAbsoluteUrlFromPath(fileInfo.DirectoryName, fileInfo.Name);
                 result.ContentType = MimeTypeResolver.ResolveContentType(fileInfo.Name);
                 result.Size = fileInfo.Length;
                 result.Name = fileInfo.Name;
@@ -154,8 +154,8 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
                 var folder = AbstractTypeFactory<BlobFolder>.TryCreateInstance();
                 folder.Name = Path.GetFileName(directory);
-                folder.Url = GetAbsoluteUrl(directoryPath: directory);
-                folder.ParentUrl = GetAbsoluteUrl(directoryPath: directoryInfo.Parent?.FullName);
+                folder.Url = GetAbsoluteUrlFromPath(directoryPath: directory);
+                folder.ParentUrl = GetAbsoluteUrlFromPath(directoryPath: directoryInfo.Parent?.FullName);
                 folder.RelativeUrl = GetRelativeUrl(folder.Url);
                 folder.CreatedDate = directoryInfo.CreationTimeUtc;
                 folder.ModifiedDate = directoryInfo.LastWriteTimeUtc;
@@ -168,7 +168,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 var fileInfo = new FileInfo(file);
 
                 var blobInfo = AbstractTypeFactory<BlobInfo>.TryCreateInstance();
-                blobInfo.Url = GetAbsoluteUrl(fileInfo.DirectoryName, fileInfo.Name);
+                blobInfo.Url = GetAbsoluteUrlFromPath(fileInfo.DirectoryName, fileInfo.Name);
                 blobInfo.ContentType = MimeTypeResolver.ResolveContentType(fileInfo.Name);
                 blobInfo.Size = fileInfo.Length;
                 blobInfo.Name = fileInfo.Name;
@@ -339,7 +339,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             return result;
         }
 
-        protected string GetAbsoluteUrl(string directoryPath, string fileName = null)
+        protected string GetAbsoluteUrlFromPath(string directoryPath, string fileName = null)
         {
             var basePath = _basePublicUrl + "/" + directoryPath.Replace(_storagePath, string.Empty)
                              .TrimStart(Path.DirectorySeparatorChar)
