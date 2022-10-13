@@ -67,7 +67,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 var fileInfo = new FileInfo(filePath);
 
                 result = AbstractTypeFactory<BlobInfo>.TryCreateInstance();
-                result.Url = GetAbsoluteUrlFromPath(fileInfo.DirectoryName, fileInfo.Name);
+                result.Url = GetAbsoluteUrl(fileInfo.DirectoryName, fileInfo.Name);
                 result.ContentType = MimeTypeResolver.ResolveContentType(fileInfo.Name);
                 result.Size = fileInfo.Length;
                 result.Name = fileInfo.Name;
@@ -154,8 +154,8 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
                 var folder = AbstractTypeFactory<BlobFolder>.TryCreateInstance();
                 folder.Name = Path.GetFileName(directory);
-                folder.Url = GetAbsoluteUrlFromPath(directoryPath: directory);
-                folder.ParentUrl = GetAbsoluteUrlFromPath(directoryPath: directoryInfo.Parent?.FullName);
+                folder.Url = GetAbsoluteUrl(directoryPath: directory);
+                folder.ParentUrl = GetAbsoluteUrl(directoryPath: directoryInfo.Parent?.FullName);
                 folder.RelativeUrl = GetRelativeUrl(folder.Url);
                 folder.CreatedDate = directoryInfo.CreationTimeUtc;
                 folder.ModifiedDate = directoryInfo.LastWriteTimeUtc;
@@ -168,7 +168,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 var fileInfo = new FileInfo(file);
 
                 var blobInfo = AbstractTypeFactory<BlobInfo>.TryCreateInstance();
-                blobInfo.Url = GetAbsoluteUrlFromPath(fileInfo.DirectoryName, fileInfo.Name);
+                blobInfo.Url = GetAbsoluteUrl(fileInfo.DirectoryName, fileInfo.Name);
                 blobInfo.ContentType = MimeTypeResolver.ResolveContentType(fileInfo.Name);
                 blobInfo.Size = fileInfo.Length;
                 blobInfo.Name = fileInfo.Name;
@@ -339,25 +339,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             return result;
         }
 
-        [Obsolete("Use GetAbsoluteUrlFromPath(string directoryPath, string fileName = null).")]
-        protected string GetAbsoluteUrlFromPath(string path)
-        {
-            var result = _basePublicUrl + "/" + path.Replace(_storagePath, string.Empty)
-                             .TrimStart(Path.DirectorySeparatorChar)
-                             .Replace(Path.DirectorySeparatorChar, '/');
-#pragma warning disable SYSLIB0013 // Type or member is obsolete
-            // Unfortunately, no replacement for this call. We should consider to remove this call at all.
-            return Uri.EscapeUriString(result);
-#pragma warning restore SYSLIB0013 // Type or member is obsolete
-        }
-
-        /// <summary>
-        /// Correct implementation of GetAbsoluteUrlFromPath
-        /// </summary>
-        /// <param name="directoryPath"></param>
-        /// <param name="fileName"></param>
-        /// <returns></returns>
-        protected string GetAbsoluteUrlFromPath(string directoryPath, string fileName = null)
+        protected string GetAbsoluteUrl(string directoryPath, string fileName = null)
         {
             var basePath = _basePublicUrl + "/" + directoryPath.Replace(_storagePath, string.Empty)
                              .TrimStart(Path.DirectorySeparatorChar)
@@ -369,7 +351,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             }
 
             // escape filename separately
-            // 'new Uri(fileName).ToString()' has the same corruption issues that 'Uri.EscapeUriString()' has
+            // 'new Uri(path).ToString()' has the same corruption issues that 'Uri.EscapeUriString()' has
             var escapedFileName = Uri.EscapeDataString(fileName);
 
             if (!basePath.EndsWith('/'))
