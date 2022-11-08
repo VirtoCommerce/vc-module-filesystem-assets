@@ -319,10 +319,10 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 throw new ArgumentNullException(nameof(blobKey));
             }
 
-            var result = blobKey;
+            var result = EscapeUri(blobKey);
             if (!blobKey.IsAbsoluteUrl())
             {
-                result = _basePublicUrl + "/" + blobKey.TrimStart('/').TrimEnd('/');
+                result = _basePublicUrl + "/" + result.TrimStart('/').TrimEnd('/');
             }
             return new Uri(result).ToString();
         }
@@ -384,6 +384,16 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             {
                 throw new PlatformException($"Invalid path {path}");
             }
+        }
+
+        private static string EscapeUri(string stringToEscape)
+        {
+            // espace only file name because Uri.EscapeDataString() escapes slashes, which we don't want
+            var fileName = Path.GetFileName(stringToEscape);
+            var blobPath = string.IsNullOrEmpty(fileName) ? stringToEscape : stringToEscape.Replace(fileName, string.Empty);
+            var escapedFileName = Uri.EscapeDataString(fileName);
+
+            return $"{blobPath}{escapedFileName}";
         }
     }
 }
