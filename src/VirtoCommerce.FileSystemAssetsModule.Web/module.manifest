@@ -4,8 +4,8 @@
   <version>3.204.0</version>
   <version-tag />
   <platformVersion>3.200.0</platformVersion>
-  <title>File system assets module</title>
-  <description />
+  <title>File Systems Assets Provider</title>
+  <description>Provide integration with File Systems for Assets Management</description>
   <authors>
     <author>Virto Commerce</author>
   </authors>
@@ -16,7 +16,7 @@
   <iconUrl>Modules/$(VirtoCommerce.FileSystemAssetsModule)/Content/logo.png</iconUrl>
   <requireLicenseAcceptance>false</requireLicenseAcceptance>
   <releaseNotes />
-  <copyright>Copyright © 2022 Virto Commerce. All rights reserved</copyright>
+  <copyright>Copyright © 2023 Virto Commerce. All rights reserved</copyright>
   <tags>assets</tags>
   <assemblyFile>VirtoCommerce.FileSystemAssetsModule.Web.dll</assemblyFile>
   <moduleType>VirtoCommerce.FileSystemAssetsModule.Web.Module, VirtoCommerce.FileSystemAssetsModule.Web</moduleType>
