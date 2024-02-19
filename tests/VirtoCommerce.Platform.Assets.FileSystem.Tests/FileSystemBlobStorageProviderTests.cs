@@ -65,7 +65,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
         [Fact]
         public void FileSystemBlobProviderStreamWritePermissionsTest()
         {
-            var fsbProvider = new FileSystemBlobProvider(_options, new OptionsWrapper<PlatformOptions>(new PlatformOptions()), null);
+            var fsbProvider = new FileSystemBlobProvider(_options, new OptionsWrapper<PlatformOptions>(new PlatformOptions()), null, null);
 
             using (var actualStream = fsbProvider.OpenWrite("file-write.tmp"))
             {
@@ -80,7 +80,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
         [Fact]
         public void FileSystemBlobProviderStreamReadPermissionsTest()
         {
-            var fsbProvider = new FileSystemBlobProvider(_options, new OptionsWrapper<PlatformOptions>(new PlatformOptions()), null);
+            var fsbProvider = new FileSystemBlobProvider(_options, new OptionsWrapper<PlatformOptions>(new PlatformOptions()), null, null);
             const string fileForRead = "file-read.tmp";
 
             // Creating empty file.
