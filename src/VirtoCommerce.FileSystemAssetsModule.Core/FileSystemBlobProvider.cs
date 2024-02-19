@@ -267,7 +267,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                     Provider = ProviderName
                 }, EntryState.Deleted)).ToArray();
 
-                return _eventPublisher.Publish(new BlobCreatedEvent(events));
+                return _eventPublisher.Publish(new BlobDeletedEvent(events));
             }
 
             return Task.CompletedTask;
