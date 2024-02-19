@@ -5,12 +5,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using VirtoCommerce.Assets.Abstractions;
 using VirtoCommerce.AssetsModule.Core.Assets;
-using VirtoCommerce.AssetsModule.Core.Events;
-using VirtoCommerce.AssetsModule.Core.Model;
-using VirtoCommerce.AssetsModule.Core.Services;
 using VirtoCommerce.Platform.Core;
 using VirtoCommerce.Platform.Core.Common;
-using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Exceptions;
 using VirtoCommerce.Platform.Core.Settings;
 
@@ -22,17 +18,14 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
         private readonly string _storagePath;
         private readonly string _basePublicUrl;
-        private readonly IEventPublisher _eventPublisher;
 
 
-        public FileSystemBlobProvider(IOptions<FileSystemBlobOptions> options, IOptions<PlatformOptions> platformOptions, ISettingsManager settingsManager, IEventPublisher eventPublisher) : base(platformOptions, settingsManager)
+        public FileSystemBlobProvider(IOptions<FileSystemBlobOptions> options, IOptions<PlatformOptions> platformOptions, ISettingsManager settingsManager) : base(platformOptions, settingsManager)
         {
             // extra replace step to prevent windows path getting into Linux environment
             _storagePath = options.Value.RootPath.TrimEnd(Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
             _basePublicUrl = options.Value.PublicUrl;
             _basePublicUrl = _basePublicUrl?.TrimEnd('/');
-
-            _eventPublisher = eventPublisher;
         }
 
         #region ICommonBlobProvider members
@@ -127,8 +120,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 Directory.CreateDirectory(folderPath);
             }
 
-            return new BlobUploadStream(ProviderName, blobUrl, _eventPublisher,
-                File.Open(filePath, FileMode.Create));
+            return File.Open(filePath, FileMode.Create);
         }
 
         public Task<Stream> OpenWriteAsync(string blobUrl)
@@ -223,16 +215,12 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         /// <param name="urls"></param>
         public virtual Task RemoveAsync(string[] urls)
         {
-            ArgumentNullException.ThrowIfNull(urls);
-
-            var urlsToDelete = urls.Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
-
-            if (urlsToDelete.Length == 0)
+            if (urls == null)
             {
-                return Task.CompletedTask;
+                throw new ArgumentNullException(nameof(urls));
             }
 
-            foreach (var url in urlsToDelete)
+            foreach (var url in urls.Where(x => !string.IsNullOrWhiteSpace(x)))
             {
                 var path = GetStoragePathFromUrl(url);
 
@@ -250,24 +238,6 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 {
                     File.Delete(path);
                 }
-            }
-
-            return RaiseBlobDeteledEvent(urlsToDelete);
-        }
-
-        protected virtual Task RaiseBlobDeteledEvent(string[] urls)
-        {
-            if (_eventPublisher != null)
-            {
-                var events = urls.Select(url =>
-                new GenericChangedEntry<BlobEventInfo>(new BlobEventInfo
-                {
-                    Id = url,
-                    Uri = url,
-                    Provider = ProviderName
-                }, EntryState.Deleted)).ToArray();
-
-                return _eventPublisher.Publish(new BlobCreatedEvent(events));
             }
 
             return Task.CompletedTask;
