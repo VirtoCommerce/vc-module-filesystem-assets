@@ -134,7 +134,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 Directory.CreateDirectory(folderPath);
             }
 
-            return new BlobUploadStream(ProviderName, blobUrl, _eventPublisher, File.Open(filePath, FileMode.Create));
+            return new BlobUploadStream(File.Open(filePath, FileMode.Create), blobUrl, ProviderName, _eventPublisher);
 
         }
 
