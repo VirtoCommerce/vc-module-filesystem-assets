@@ -1,8 +1,8 @@
-using Microsoft.Extensions.Options;
 using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
 using VirtoCommerce.Assets.Abstractions;
 using VirtoCommerce.AssetsModule.Core.Assets;
 using VirtoCommerce.AssetsModule.Core.Events;
@@ -95,16 +95,16 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         /// <returns>blob stream</returns>
         public virtual Stream OpenRead(string blobUrl)
         {
-            return OpenReadAsync(blobUrl).GetAwaiter().GetResult();
-        }
-
-        public Task<Stream> OpenReadAsync(string blobUrl)
-        {
             var filePath = GetStoragePathFromUrl(blobUrl);
 
             ValidatePath(filePath);
 
-            return Task.FromResult((Stream)File.Open(filePath, FileMode.Open, FileAccess.Read));
+            return File.Open(filePath, FileMode.Open, FileAccess.Read);
+        }
+
+        public Task<Stream> OpenReadAsync(string blobUrl)
+        {
+            return Task.FromResult(OpenRead(blobUrl));
         }
 
         /// <summary>
@@ -122,11 +122,9 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             var filePath = GetStoragePathFromUrl(blobUrl);
             var folderPath = Path.GetDirectoryName(filePath);
 
-            var isAllowed = await _fileExtensionService.IsExtensionAllowedAsync(filePath);
-
-            if (!isAllowed)
+            if (!await _fileExtensionService.IsExtensionAllowedAsync(filePath))
             {
-                throw new PlatformException($"This extension is not allowed. Please contact administrator.");
+                throw new PlatformException("This extension is not allowed. Please contact administrator.");
             }
 
             ValidatePath(filePath);
@@ -136,8 +134,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 Directory.CreateDirectory(folderPath);
             }
 
-            return new BlobUploadStream(ProviderName, blobUrl, _eventPublisher,
-                File.Open(filePath, FileMode.Create));
+            return new BlobUploadStream(ProviderName, blobUrl, _eventPublisher, File.Open(filePath, FileMode.Create));
 
         }
 
@@ -257,25 +254,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 }
             }
 
-            return RaiseBlobDeteledEvent(urlsToDelete);
-        }
-
-        protected virtual Task RaiseBlobDeteledEvent(string[] urls)
-        {
-            if (_eventPublisher != null)
-            {
-                var events = urls.Select(url =>
-                new GenericChangedEntry<BlobEventInfo>(new BlobEventInfo
-                {
-                    Id = url,
-                    Uri = url,
-                    Provider = ProviderName
-                }, EntryState.Deleted)).ToArray();
-
-                return _eventPublisher.Publish(new BlobDeletedEvent(events));
-            }
-
-            return Task.CompletedTask;
+            return RaiseBlobDeletedEvent(urlsToDelete);
         }
 
         public virtual void Move(string srcUrl, string destUrl)
@@ -296,11 +275,9 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 }
                 else if (File.Exists(srcPath) && !File.Exists(dstPath))
                 {
-                    var isAllowed = await _fileExtensionService.IsExtensionAllowedAsync(dstPath);
-
-                    if (!isAllowed)
+                    if (!await _fileExtensionService.IsExtensionAllowedAsync(dstPath))
                     {
-                        throw new PlatformException($"This extension is not allowed. Please contact administrator.");
+                        throw new PlatformException("This extension is not allowed. Please contact administrator.");
                     }
 
                     File.Move(srcPath, dstPath);
@@ -319,6 +296,25 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         public Task CopyAsync(string srcUrl, string destUrl)
         {
             Copy(srcUrl, destUrl);
+
+            return Task.CompletedTask;
+        }
+
+
+        protected virtual Task RaiseBlobDeletedEvent(string[] urls)
+        {
+            if (_eventPublisher != null)
+            {
+                var entries = urls.Select(url =>
+                    new GenericChangedEntry<BlobEventInfo>(new BlobEventInfo
+                    {
+                        Id = url,
+                        Uri = url,
+                        Provider = ProviderName,
+                    }, EntryState.Deleted)).ToArray();
+
+                return _eventPublisher.Publish(new BlobDeletedEvent(entries));
+            }
 
             return Task.CompletedTask;
         }
@@ -423,7 +419,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
         private static string EscapeUri(string stringToEscape)
         {
-            // espace only file name because Uri.EscapeDataString() escapes slashes, which we don't want
+            // Escape only file name because Uri.EscapeDataString() escapes slashes, which we don't want
             var fileName = Path.GetFileName(stringToEscape);
             var blobPath = string.IsNullOrEmpty(fileName) ? stringToEscape : stringToEscape.Replace(fileName, string.Empty);
             var escapedFileName = Uri.EscapeDataString(fileName);

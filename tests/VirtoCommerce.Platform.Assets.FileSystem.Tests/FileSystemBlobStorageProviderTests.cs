@@ -1,10 +1,10 @@
+using System;
+using System.IO;
+using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Moq;
-using System;
-using System.IO;
-using System.Linq;
 using VirtoCommerce.AssetsModule.Core.Services;
 using VirtoCommerce.FileSystemAssetsModule.Core;
 using Xunit;
