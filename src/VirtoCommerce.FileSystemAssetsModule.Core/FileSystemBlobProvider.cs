@@ -8,30 +8,32 @@ using VirtoCommerce.AssetsModule.Core.Assets;
 using VirtoCommerce.AssetsModule.Core.Events;
 using VirtoCommerce.AssetsModule.Core.Model;
 using VirtoCommerce.AssetsModule.Core.Services;
-using VirtoCommerce.Platform.Core;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Exceptions;
-using VirtoCommerce.Platform.Core.Settings;
 
 namespace VirtoCommerce.FileSystemAssetsModule.Core
 {
-    public class FileSystemBlobProvider : BasicBlobProvider, IBlobStorageProvider, IBlobUrlResolver, ICommonBlobProvider
+    public class FileSystemBlobProvider : IBlobStorageProvider, IBlobUrlResolver, ICommonBlobProvider
     {
         public const string ProviderName = "FileSystem";
 
         private readonly string _storagePath;
         private readonly string _basePublicUrl;
+        private readonly IFileExtensionService _fileExtensionService;
         private readonly IEventPublisher _eventPublisher;
 
 
-        public FileSystemBlobProvider(IOptions<FileSystemBlobOptions> options, IOptions<PlatformOptions> platformOptions, ISettingsManager settingsManager, IEventPublisher eventPublisher) : base(platformOptions, settingsManager)
+        public FileSystemBlobProvider(
+            IOptions<FileSystemBlobOptions> options,
+            IFileExtensionService fileExtensionService,
+            IEventPublisher eventPublisher)
         {
             // extra replace step to prevent windows path getting into Linux environment
             _storagePath = options.Value.RootPath.TrimEnd(Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
             _basePublicUrl = options.Value.PublicUrl;
             _basePublicUrl = _basePublicUrl?.TrimEnd('/');
-
+            _fileExtensionService = fileExtensionService;
             _eventPublisher = eventPublisher;
         }
 
@@ -93,16 +95,16 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         /// <returns>blob stream</returns>
         public virtual Stream OpenRead(string blobUrl)
         {
-            var filePath = GetStoragePathFromUrl(blobUrl);
-
-            ValidatePath(filePath);
-
-            return File.Open(filePath, FileMode.Open, FileAccess.Read);
+            return OpenReadAsync(blobUrl).GetAwaiter().GetResult();
         }
 
         public Task<Stream> OpenReadAsync(string blobUrl)
         {
-            return Task.FromResult(OpenRead(blobUrl));
+            var filePath = GetStoragePathFromUrl(blobUrl);
+
+            ValidatePath(filePath);
+
+            return Task.FromResult((Stream)File.Open(filePath, FileMode.Open, FileAccess.Read));
         }
 
         /// <summary>
@@ -112,10 +114,17 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         /// <returns>blob stream</returns>
         public virtual Stream OpenWrite(string blobUrl)
         {
+            return OpenWriteAsync(blobUrl).GetAwaiter().GetResult();
+        }
+
+        public async Task<Stream> OpenWriteAsync(string blobUrl)
+        {
             var filePath = GetStoragePathFromUrl(blobUrl);
             var folderPath = Path.GetDirectoryName(filePath);
 
-            if (IsExtensionBlacklisted(filePath))
+            var isAllowed = await _fileExtensionService.IsExtensionAllowedAsync(filePath);
+
+            if (!isAllowed)
             {
                 throw new PlatformException($"This extension is not allowed. Please contact administrator.");
             }
@@ -129,11 +138,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
             return new BlobUploadStream(ProviderName, blobUrl, _eventPublisher,
                 File.Open(filePath, FileMode.Create));
-        }
 
-        public Task<Stream> OpenWriteAsync(string blobUrl)
-        {
-            return Task.FromResult(OpenWrite(blobUrl));
         }
 
         /// <summary>
@@ -275,6 +280,11 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
         public virtual void Move(string srcUrl, string destUrl)
         {
+            MoveAsyncPublic(srcUrl, destUrl).GetAwaiter().GetResult();
+        }
+
+        public async Task MoveAsyncPublic(string srcUrl, string destUrl)
+        {
             var srcPath = GetStoragePathFromUrl(srcUrl);
             var dstPath = GetStoragePathFromUrl(destUrl);
 
@@ -286,7 +296,9 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 }
                 else if (File.Exists(srcPath) && !File.Exists(dstPath))
                 {
-                    if (IsExtensionBlacklisted(dstPath))
+                    var isAllowed = await _fileExtensionService.IsExtensionAllowedAsync(dstPath);
+
+                    if (!isAllowed)
                     {
                         throw new PlatformException($"This extension is not allowed. Please contact administrator.");
                     }
@@ -294,13 +306,6 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                     File.Move(srcPath, dstPath);
                 }
             }
-        }
-
-        public Task MoveAsyncPublic(string srcUrl, string destUrl)
-        {
-            Move(srcUrl, destUrl);
-
-            return Task.CompletedTask;
         }
 
         public virtual void Copy(string srcUrl, string destUrl)

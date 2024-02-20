@@ -5,8 +5,8 @@ using Moq;
 using System;
 using System.IO;
 using System.Linq;
+using VirtoCommerce.AssetsModule.Core.Services;
 using VirtoCommerce.FileSystemAssetsModule.Core;
-using VirtoCommerce.Platform.Core;
 using Xunit;
 
 namespace VirtoCommerce.Platform.Tests.Assets
@@ -65,7 +65,10 @@ namespace VirtoCommerce.Platform.Tests.Assets
         [Fact]
         public void FileSystemBlobProviderStreamWritePermissionsTest()
         {
-            var fsbProvider = new FileSystemBlobProvider(_options, new OptionsWrapper<PlatformOptions>(new PlatformOptions()), null, null);
+            var mockFileExtensionService = new Mock<IFileExtensionService>();
+            mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
+
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null);
 
             using (var actualStream = fsbProvider.OpenWrite("file-write.tmp"))
             {
@@ -80,7 +83,10 @@ namespace VirtoCommerce.Platform.Tests.Assets
         [Fact]
         public void FileSystemBlobProviderStreamReadPermissionsTest()
         {
-            var fsbProvider = new FileSystemBlobProvider(_options, new OptionsWrapper<PlatformOptions>(new PlatformOptions()), null, null);
+            var mockFileExtensionService = new Mock<IFileExtensionService>();
+            mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
+
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null);
             const string fileForRead = "file-read.tmp";
 
             // Creating empty file.
