@@ -144,8 +144,6 @@ namespace VirtoCommerce.Platform.Tests.Assets
         [InlineData("https://localhost:5001/assets/catalog/151349/epson%20printer.txt?test=Name%20With%20Space", "https://localhost:5001/assets/catalog/151349/epson%20printer.txt?test=Name%20With%20Space")]
         public void GetAbsoluteUrlTest(string blobKey, string absoluteUrl)
         {
-            Assert.Equal(_options.Value.PublicUrl, "https://localhost:5001/assets");
-
             var mockFileExtensionService = new Mock<IFileExtensionService>();
             mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
 
