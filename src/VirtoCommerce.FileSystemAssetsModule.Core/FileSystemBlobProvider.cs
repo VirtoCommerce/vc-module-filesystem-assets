@@ -349,9 +349,8 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
             var baseUri = new Uri(_basePublicUrl + '/', UriKind.Absolute);
 
-            inputUrl = inputUrl.TrimStart('/');
-
-            if (Uri.TryCreate(inputUrl, UriKind.Absolute, out var resultUri))
+            // do trim lead slash to prevent transform it to absolute file path on linux.
+            if (Uri.TryCreate(inputUrl.TrimStart('/'), UriKind.Absolute, out var resultUri))
             {
                 // If the input URL is already absolute, return it as is (with correct encoding)
                 return resultUri.AbsoluteUri;
