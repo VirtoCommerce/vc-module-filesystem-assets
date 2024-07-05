@@ -99,7 +99,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
             ValidatePath(filePath);
 
-            return File.Open(filePath, FileMode.Open, FileAccess.Read);
+            return File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         }
 
         public Task<Stream> OpenReadAsync(string blobUrl)
