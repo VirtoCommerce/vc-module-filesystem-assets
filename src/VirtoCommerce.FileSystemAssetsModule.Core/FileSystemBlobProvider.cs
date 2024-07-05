@@ -312,19 +312,34 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
         #region IBlobUrlResolver Members
 
-        public virtual string GetAbsoluteUrl(string blobKey)
+        public virtual string GetAbsoluteUrl(string inputUrl)
         {
-            if (blobKey == null)
+            ArgumentNullException.ThrowIfNull(nameof(inputUrl));
+
+            // do trim lead slash to prevent transform it to absolute file path on linux.
+            if (Uri.TryCreate(inputUrl.TrimStart('/'), UriKind.Absolute, out var resultUri))
             {
-                throw new ArgumentNullException(nameof(blobKey));
+                // If the input URL is already absolute, return it as is (with correct encoding)
+                return resultUri.AbsoluteUri;
             }
 
-            var result = EscapeUri(blobKey);
-            if (!blobKey.IsAbsoluteUrl())
+            if (inputUrl.StartsWith('/'))
             {
-                result = _basePublicUrl + "/" + result.TrimStart('/').TrimEnd('/');
+                inputUrl = "." + inputUrl;
             }
-            return new Uri(result).ToString();
+            else if (!inputUrl.StartsWith('.'))
+            {
+                inputUrl = "./" + inputUrl;
+            }
+
+            var baseUri = new Uri(_basePublicUrl + '/', UriKind.Absolute);
+            if (Uri.TryCreate(baseUri, inputUrl, out resultUri))
+            {
+                // If the input URL is relative, combine it with the base URI
+                return resultUri.AbsoluteUri;
+            }
+
+            return inputUrl;
         }
 
         #endregion IBlobUrlResolver Members
@@ -384,16 +399,6 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             {
                 throw new PlatformException($"Invalid path {path}");
             }
-        }
-
-        private static string EscapeUri(string stringToEscape)
-        {
-            // espace only file name because Uri.EscapeDataString() escapes slashes, which we don't want
-            var fileName = Path.GetFileName(stringToEscape);
-            var blobPath = string.IsNullOrEmpty(fileName) ? stringToEscape : stringToEscape.Replace(fileName, string.Empty);
-            var escapedFileName = Uri.EscapeDataString(fileName);
-
-            return $"{blobPath}{escapedFileName}";
         }
     }
 }
