@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Moq;
+using VirtoCommerce.AssetsModule.Core.Assets;
 using VirtoCommerce.AssetsModule.Core.Services;
 using VirtoCommerce.FileSystemAssetsModule.Core;
 using Xunit;
@@ -30,7 +31,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
         {
             var blobContentOptions = new FileSystemBlobOptions
             {
-                PublicUrl = "some-public-path",
+                PublicUrl = "https://localhost:5001/assets",
                 RootPath = tempDirectory
             };
             return new OptionsWrapper<FileSystemBlobOptions>(blobContentOptions);
@@ -123,6 +124,35 @@ namespace VirtoCommerce.Platform.Tests.Assets
                 $"DataAnnotation validation failed for '{nameof(FileSystemBlobOptions)}' members: '{nameof(FileSystemBlobOptions.PublicUrl)}' with the error: 'The {nameof(FileSystemBlobOptions.PublicUrl)} field is not a valid fully-qualified http, https, or ftp URL.");
         }
 
+        [Theory]
+        [InlineData("https://localhost:5001/assets/catalog/151349/epson printer.txt?test=Name With Space", "https://localhost:5001/assets/catalog/151349/epson%20printer.txt?test=Name%20With%20Space")]
+        [InlineData("catalog/151349/epsonprinter.txt", "https://localhost:5001/assets/catalog/151349/epsonprinter.txt")]
+        [InlineData("catalog/151349/epson printer.txt", "https://localhost:5001/assets/catalog/151349/epson%20printer.txt")]
+        [InlineData("catalog/151349/epson%20printer.txt?test=Name%20With%20Space", "https://localhost:5001/assets/catalog/151349/epson%20printer.txt?test=Name%20With%20Space")]
+        [InlineData("catalog/151349/epson printer.txt?test=Name With Space", "https://localhost:5001/assets/catalog/151349/epson%20printer.txt?test=Name%20With%20Space")]
+        [InlineData("/catalog/151349/epsonprinter.txt", "https://localhost:5001/assets/catalog/151349/epsonprinter.txt")]
+        [InlineData("/catalog/151349/epson printer.txt", "https://localhost:5001/assets/catalog/151349/epson%20printer.txt")]
+        [InlineData("/catalog/151349/epson%20printer.txt?test=Name%20With%20Space", "https://localhost:5001/assets/catalog/151349/epson%20printer.txt?test=Name%20With%20Space")]
+        [InlineData("/catalog/151349/epson printer.txt?test=Name With Space", "https://localhost:5001/assets/catalog/151349/epson%20printer.txt?test=Name%20With%20Space")]
+        [InlineData("epsonprinter.txt", "https://localhost:5001/assets/epsonprinter.txt")]
+        [InlineData("/epson printer.txt", "https://localhost:5001/assets/epson%20printer.txt")]
+        [InlineData("epson%20printer.txt?test=Name%20With%20Space", "https://localhost:5001/assets/epson%20printer.txt?test=Name%20With%20Space")]
+        [InlineData("/epson printer.txt?test=Name With Space", "https://localhost:5001/assets/epson%20printer.txt?test=Name%20With%20Space")]
+        [InlineData("/epson%20printer.txt?test=Name+With+Space", "https://localhost:5001/assets/epson%20printer.txt?test=Name+With+Space")]
+        [InlineData("https://localhost:5001/assets/catalog/151349/epsonprinter.txt", "https://localhost:5001/assets/catalog/151349/epsonprinter.txt")]
+        [InlineData("https://localhost:5001/assets/catalog/151349/epson printer.txt", "https://localhost:5001/assets/catalog/151349/epson%20printer.txt")]
+        [InlineData("https://localhost:5001/assets/catalog/151349/epson%20printer.txt?test=Name%20With%20Space", "https://localhost:5001/assets/catalog/151349/epson%20printer.txt?test=Name%20With%20Space")]
+        public void GetAbsoluteUrlTest(string blobKey, string absoluteUrl)
+        {
+            var mockFileExtensionService = new Mock<IFileExtensionService>();
+            mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
+
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null);
+            var blobUrlResolver = (IBlobUrlResolver)fsbProvider;
+
+            Assert.Equal(absoluteUrl, blobUrlResolver.GetAbsoluteUrl(blobKey));
+        }
+
         private void ValidateFailure<TOptions>(OptionsValidationException ex, string name = "", int count = 1, params string[] errorsToMatch)
         {
             Assert.Equal(typeof(TOptions), ex.OptionsType);
@@ -138,5 +168,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
                 Assert.True(ex.Failures.FirstOrDefault(f => f.Contains(error)) != null, "Did not find: " + error);
             }
         }
+
+
     }
 }
