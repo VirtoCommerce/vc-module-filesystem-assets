@@ -124,7 +124,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
             if (!await _fileExtensionService.IsExtensionAllowedAsync(filePath))
             {
-                throw new PlatformException("This extension is not allowed. Please contact administrator.");
+                throw new PlatformException($"File extension {Path.GetExtension(filePath)} is not allowed. Please contact administrator.");
             }
 
             ValidatePath(filePath);
@@ -277,7 +277,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 {
                     if (!await _fileExtensionService.IsExtensionAllowedAsync(dstPath))
                     {
-                        throw new PlatformException("This extension is not allowed. Please contact administrator.");
+                        throw new PlatformException($"File extension {Path.GetExtension(dstPath)} is not allowed. Please contact administrator.");
                     }
 
                     File.Move(srcPath, dstPath);
