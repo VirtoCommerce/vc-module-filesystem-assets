@@ -22,9 +22,4 @@
   <ItemGroup>
     <ProjectReference Include="..\VirtoCommerce.FileSystemAssetsModule.Core\VirtoCommerce.FileSystemAssetsModule.Core.csproj" />
   </ItemGroup>
-
-  <!--Temporary workaround in stable bundle VC0009-->
-  <ItemGroup>
-    <PackageReference Include="VirtoCommerce.Assets.Abstractions" Version="3.200.0" />
-  </ItemGroup>
 </Project>
