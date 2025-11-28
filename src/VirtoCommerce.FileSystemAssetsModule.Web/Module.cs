@@ -4,9 +4,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using VirtoCommerce.FileSystemAssetsModule.Core;
 using VirtoCommerce.FileSystemAssetsModule.Core.Extensions;
+using VirtoCommerce.FileSystemAssetsModule.Web.Extensions;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.Modularity;
-using VirtoCommerce.FileSystemAssetsModule.Web.Extensions;
 
 namespace VirtoCommerce.FileSystemAssetsModule.Web
 {
@@ -18,7 +18,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Web
         public void Initialize(IServiceCollection serviceCollection)
         {
             var assetsProvider = Configuration.GetSection("Assets:Provider").Value;
-            if (assetsProvider.EqualsInvariant(FileSystemBlobProvider.ProviderName))
+            if (assetsProvider.EqualsIgnoreCase(FileSystemBlobProvider.ProviderName))
             {
                 serviceCollection.AddOptions<FileSystemBlobOptions>().Bind(Configuration.GetSection("Assets:FileSystem"))
                     .PostConfigure<IWebHostEnvironment>((opts, env) =>
