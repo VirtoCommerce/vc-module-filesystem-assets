@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -102,6 +104,115 @@ namespace VirtoCommerce.Platform.Tests.Assets
             {
                 Assert.True(actualStream.CanRead, "'OpenRead' stream should be readable.");
                 Assert.False(actualStream.CanWrite, "'OpenRead' stream should be read-only.");
+            }
+        }
+
+        /// <summary>
+        /// Test that retry policy resolves IOException when file is locked by another process.
+        /// </summary>
+        [Fact]
+        public async Task OpenReadAsync_ShouldRetryOnIOException_WhenFileIsLocked()
+        {
+            // Arrange
+            var mockFileExtensionService = new Mock<IFileExtensionService>();
+            mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
+
+            var mockLogger = new Mock<ILogger<FileSystemBlobProvider>>();
+
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null, mockLogger.Object);
+            const string fileName = "locked-file.tmp";
+            var filePath = Path.Combine(_tempDirectory, fileName);
+
+            // Create a file with some content
+            await File.WriteAllTextAsync(filePath, "test content");
+
+            FileStream lockingStream = null;
+            Stream resultStream = null;
+
+            try
+            {
+                // Lock the file exclusively (no sharing)
+                lockingStream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+                // Start a task that will release the lock after a short delay
+                var unlockTask = Task.Run(async () =>
+                {
+                    await Task.Delay(200); // Release after 200ms (should trigger 1-2 retries)
+                    lockingStream?.Dispose();
+                    lockingStream = null;
+                });
+
+                // Act - This should retry and eventually succeed after the lock is released
+                resultStream = await fsbProvider.OpenReadAsync(fileName);
+
+                // Assert
+                Assert.NotNull(resultStream);
+                Assert.True(resultStream.CanRead);
+
+                // Verify that retry logging was called (at least one retry should have occurred)
+                mockLogger.Verify(
+                    x => x.Log(
+                        LogLevel.Warning,
+                        It.IsAny<EventId>(),
+                        It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Retry attempt")),
+                        It.IsAny<Exception>(),
+                        It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                    Times.AtLeastOnce);
+
+                await unlockTask; // Ensure unlock task completes
+            }
+            finally
+            {
+                resultStream?.Dispose();
+                lockingStream?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Test that retry policy eventually fails after max retries when file remains locked.
+        /// </summary>
+        [Fact]
+        public async Task OpenReadAsync_ShouldFailAfterMaxRetries_WhenFilePermanentlyLocked()
+        {
+            // Arrange
+            var mockFileExtensionService = new Mock<IFileExtensionService>();
+            mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
+
+            var mockLogger = new Mock<ILogger<FileSystemBlobProvider>>();
+
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null, mockLogger.Object);
+            const string fileName = "permanently-locked-file.tmp";
+            var filePath = Path.Combine(_tempDirectory, fileName);
+
+            // Create a file with some content
+            await File.WriteAllTextAsync(filePath, "test content");
+
+            FileStream lockingStream = null;
+
+            try
+            {
+                // Lock the file exclusively and keep it locked
+                lockingStream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+                // Act & Assert - Should throw IOException after exhausting retries
+                await Assert.ThrowsAsync<IOException>(async () =>
+                {
+                    await fsbProvider.OpenReadAsync(fileName);
+                });
+
+                // Verify that multiple retry attempts were logged (should be 3 retries based on our config)
+                mockLogger.Verify(
+                    x => x.Log(
+                        LogLevel.Warning,
+                        It.IsAny<EventId>(),
+                        It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Retry attempt")),
+                        It.IsAny<Exception>(),
+                        It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                    Times.Exactly(3)); // Should retry exactly 3 times before failing
+            }
+            finally
+            {
+                lockingStream?.Dispose();
             }
         }
 
