@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using VirtoCommerce.AssetsModule.Core.Assets;
@@ -69,12 +70,14 @@ namespace VirtoCommerce.Platform.Tests.Assets
             var mockFileExtensionService = new Mock<IFileExtensionService>();
             mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
 
-            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null);
+            var mockLogger = new Mock<ILogger<FileSystemBlobProvider>>();
+
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null, mockLogger.Object);
 
             using (var actualStream = fsbProvider.OpenWrite("file-write.tmp"))
             {
                 Assert.True(actualStream.CanWrite, "'OpenWrite' stream should be writable.");
-                Assert.True(actualStream.CanRead, "'OpenWrite' stream should be write-only.");
+                Assert.False(actualStream.CanRead, "'OpenWrite' stream should be write-only.");
             }
         }
 
@@ -87,7 +90,9 @@ namespace VirtoCommerce.Platform.Tests.Assets
             var mockFileExtensionService = new Mock<IFileExtensionService>();
             mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
 
-            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null);
+            var mockLogger = new Mock<ILogger<FileSystemBlobProvider>>();
+
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null, mockLogger.Object);
             const string fileForRead = "file-read.tmp";
 
             // Creating empty file.
@@ -147,7 +152,9 @@ namespace VirtoCommerce.Platform.Tests.Assets
             var mockFileExtensionService = new Mock<IFileExtensionService>();
             mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
 
-            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null);
+            var mockLogger = new Mock<ILogger<FileSystemBlobProvider>>();
+
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null, mockLogger.Object);
             var blobUrlResolver = (IBlobUrlResolver)fsbProvider;
 
             Assert.Equal(absoluteUrl, blobUrlResolver.GetAbsoluteUrl(blobKey));
