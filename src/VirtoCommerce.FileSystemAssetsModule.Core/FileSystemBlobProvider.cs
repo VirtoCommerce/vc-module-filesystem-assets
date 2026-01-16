@@ -47,9 +47,12 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             _retryPipeline = new ResiliencePipelineBuilder()
                 .AddRetry(new RetryStrategyOptions
                 {
-                    ShouldHandle = new Polly.PredicateBuilder().Handle<IOException>(),
+                    ShouldHandle = new Polly.PredicateBuilder()
+                        .Handle<IOException>(exception =>
+                            exception is not FileNotFoundException &&
+                            exception is not DirectoryNotFoundException),
                     MaxRetryAttempts = 3,
-                    Delay = TimeSpan.FromMilliseconds(100),
+                    Delay = TimeSpan.FromMilliseconds(50),
                     BackoffType = DelayBackoffType.Exponential,
                     UseJitter = true,
                     OnRetry = args =>

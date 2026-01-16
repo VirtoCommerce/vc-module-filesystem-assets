@@ -137,7 +137,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
                 // Start a task that will release the lock after a short delay
                 var unlockTask = Task.Run(async () =>
                 {
-                    await Task.Delay(200); // Release after 200ms (should trigger 1-2 retries)
+                    await Task.Delay(100); // Release after 100ms (should trigger 1-2 retries)
                     lockingStream?.Dispose();
                     lockingStream = null;
                 });
@@ -216,6 +216,37 @@ namespace VirtoCommerce.Platform.Tests.Assets
             }
         }
 
+        /// <summary>
+        /// Test that retry policy is not executed for FileNotFoundException.
+        /// </summary>
+        [Fact]
+        public async Task OpenReadAsync_ShouldNotRetry_WhenFileIsMissing()
+        {
+            // Arrange
+            var mockFileExtensionService = new Mock<IFileExtensionService>();
+            mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
+
+            var mockLogger = new Mock<ILogger<FileSystemBlobProvider>>();
+
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null, mockLogger.Object);
+            const string missingFile = "missing-file.tmp";
+
+            // Act & Assert - FileNotFoundException should be thrown immediately without retries
+            await Assert.ThrowsAsync<FileNotFoundException>(async () =>
+            {
+                await fsbProvider.OpenReadAsync(missingFile);
+            });
+
+            // Verify that retry logging never occurred
+            mockLogger.Verify(
+                x => x.Log(
+                    LogLevel.Warning,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Retry attempt")),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                Times.Never);
+        }
 
         [Fact]
         public void FileSystemBlobOptions_CanValidateDataAnnotations()
