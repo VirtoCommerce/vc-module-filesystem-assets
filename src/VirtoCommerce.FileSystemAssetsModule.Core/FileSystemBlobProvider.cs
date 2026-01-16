@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Retry;
@@ -28,6 +29,13 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         private readonly ILogger<FileSystemBlobProvider> _logger;
         private readonly ResiliencePipeline _retryPipeline;
 
+        public FileSystemBlobProvider(
+           IOptions<FileSystemBlobOptions> options,
+           IFileExtensionService fileExtensionService,
+           IEventPublisher eventPublisher): this(options, fileExtensionService, eventPublisher, NullLogger<FileSystemBlobProvider>.Instance)
+        {
+        }
+
 
         public FileSystemBlobProvider(
             IOptions<FileSystemBlobOptions> options,
@@ -51,8 +59,8 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                         .Handle<IOException>(exception =>
                             exception is not FileNotFoundException &&
                             exception is not DirectoryNotFoundException),
-                    MaxRetryAttempts = 3,
-                    Delay = TimeSpan.FromMilliseconds(50),
+                    MaxRetryAttempts = 5,
+                    Delay = TimeSpan.FromMilliseconds(30),
                     BackoffType = DelayBackoffType.Exponential,
                     UseJitter = true,
                     OnRetry = args =>

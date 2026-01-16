@@ -40,21 +40,6 @@ namespace VirtoCommerce.Platform.Tests.Assets
             return new OptionsWrapper<FileSystemBlobOptions>(blobContentOptions);
         }
 
-        private static Mock<IHttpContextAccessor> BuildHttpContextAccessor()
-        {
-            var request = new Mock<HttpRequest>();
-            request.Setup(x => x.Scheme).Returns("http");
-            request.Setup(x => x.Host).Returns(new HostString("some-test-host.testcompany.com"));
-
-            var httpContext = new Mock<HttpContext>();
-            httpContext.Setup(x => x.Request).Returns(request.Object);
-
-            var result = new Mock<IHttpContextAccessor>();
-            result.Setup(x => x.HttpContext).Returns(httpContext.Object);
-
-            return result;
-        }
-
         public void Dispose()
         {
             if (Directory.Exists(_tempDirectory))
@@ -72,9 +57,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
             var mockFileExtensionService = new Mock<IFileExtensionService>();
             mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
 
-            var mockLogger = new Mock<ILogger<FileSystemBlobProvider>>();
-
-            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null, mockLogger.Object);
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null);
 
             using (var actualStream = fsbProvider.OpenWrite("file-write.tmp"))
             {
@@ -92,9 +75,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
             var mockFileExtensionService = new Mock<IFileExtensionService>();
             mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
 
-            var mockLogger = new Mock<ILogger<FileSystemBlobProvider>>();
-
-            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null, mockLogger.Object);
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null);
             const string fileForRead = "file-read.tmp";
 
             // Creating empty file.
@@ -208,7 +189,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
                         It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Retry attempt")),
                         It.IsAny<Exception>(),
                         It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                    Times.Exactly(3)); // Should retry exactly 3 times before failing
+                    Times.Exactly(5)); // Should retry exactly 3 times before failing
             }
             finally
             {
@@ -294,9 +275,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
             var mockFileExtensionService = new Mock<IFileExtensionService>();
             mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
 
-            var mockLogger = new Mock<ILogger<FileSystemBlobProvider>>();
-
-            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null, mockLogger.Object);
+            var fsbProvider = new FileSystemBlobProvider(_options, mockFileExtensionService.Object, null);
             var blobUrlResolver = (IBlobUrlResolver)fsbProvider;
 
             Assert.Equal(absoluteUrl, blobUrlResolver.GetAbsoluteUrl(blobKey));
