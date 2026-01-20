@@ -2,7 +2,11 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Polly;
+using Polly.Retry;
 using VirtoCommerce.Assets.Abstractions;
 using VirtoCommerce.AssetsModule.Core.Assets;
 using VirtoCommerce.AssetsModule.Core.Events;
@@ -22,12 +26,22 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         private readonly string _basePublicUrl;
         private readonly IFileExtensionService _fileExtensionService;
         private readonly IEventPublisher _eventPublisher;
+        private readonly ILogger<FileSystemBlobProvider> _logger;
+        private readonly ResiliencePipeline _retryPipeline;
+
+        public FileSystemBlobProvider(
+           IOptions<FileSystemBlobOptions> options,
+           IFileExtensionService fileExtensionService,
+           IEventPublisher eventPublisher): this(options, fileExtensionService, eventPublisher, NullLogger<FileSystemBlobProvider>.Instance)
+        {
+        }
 
 
         public FileSystemBlobProvider(
             IOptions<FileSystemBlobOptions> options,
             IFileExtensionService fileExtensionService,
-            IEventPublisher eventPublisher)
+            IEventPublisher eventPublisher,
+            ILogger<FileSystemBlobProvider> logger)
         {
             // extra replace step to prevent windows path getting into Linux environment
             _storagePath = options.Value.RootPath.TrimEnd(Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
@@ -35,6 +49,32 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             _basePublicUrl = _basePublicUrl?.TrimEnd('/');
             _fileExtensionService = fileExtensionService;
             _eventPublisher = eventPublisher;
+            _logger = logger;
+
+            // Configure retry pipeline with exponential backoff
+            _retryPipeline = new ResiliencePipelineBuilder()
+                .AddRetry(new RetryStrategyOptions
+                {
+                    ShouldHandle = new Polly.PredicateBuilder()
+                        .Handle<IOException>(exception =>
+                            exception is not FileNotFoundException &&
+                            exception is not DirectoryNotFoundException),
+                    MaxRetryAttempts = 5,
+                    Delay = TimeSpan.FromMilliseconds(30),
+                    BackoffType = DelayBackoffType.Exponential,
+                    UseJitter = true,
+                    OnRetry = args =>
+                    {
+                        _logger.LogWarning(
+                            "Retry attempt {AttemptNumber} after {RetryDelay}ms due to {ExceptionType}: {ExceptionMessage}",
+                            args.AttemptNumber,
+                            args.RetryDelay.TotalMilliseconds,
+                            args.Outcome.Exception?.GetType().Name,
+                            args.Outcome.Exception?.Message);
+                        return default;
+                    }
+                })
+                .Build();
         }
 
         #region ICommonBlobProvider members
@@ -99,7 +139,10 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
             ValidatePath(filePath);
 
-            return File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return _retryPipeline.Execute(() =>
+            {
+                return File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            });
         }
 
         public Task<Stream> OpenReadAsync(string blobUrl)
@@ -134,7 +177,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
                 Directory.CreateDirectory(folderPath);
             }
 
-            return new BlobUploadStream(File.Open(filePath, FileMode.Create), blobUrl, ProviderName, _eventPublisher);
+            return new BlobUploadStream(File.Open(filePath, FileMode.Create, FileAccess.Write, FileShare.None), blobUrl, ProviderName, _eventPublisher);
 
         }
 
