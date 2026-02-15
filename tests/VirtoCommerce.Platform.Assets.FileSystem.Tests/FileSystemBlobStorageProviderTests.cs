@@ -1,9 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -105,7 +103,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
             var filePath = Path.Combine(_tempDirectory, fileName);
 
             // Create a file with some content
-            await File.WriteAllTextAsync(filePath, "test content");
+            await File.WriteAllTextAsync(filePath, "test content", TestContext.Current.CancellationToken);
 
             FileStream lockingStream = null;
             Stream resultStream = null;
@@ -121,7 +119,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
                     await Task.Delay(100); // Release after 100ms (should trigger 1-2 retries)
                     lockingStream?.Dispose();
                     lockingStream = null;
-                });
+                }, TestContext.Current.CancellationToken);
 
                 // Act - This should retry and eventually succeed after the lock is released
                 resultStream = await fsbProvider.OpenReadAsync(fileName);
@@ -166,7 +164,7 @@ namespace VirtoCommerce.Platform.Tests.Assets
             var filePath = Path.Combine(_tempDirectory, fileName);
 
             // Create a file with some content
-            await File.WriteAllTextAsync(filePath, "test content");
+            await File.WriteAllTextAsync(filePath, "test content", TestContext.Current.CancellationToken);
 
             FileStream lockingStream = null;
 
