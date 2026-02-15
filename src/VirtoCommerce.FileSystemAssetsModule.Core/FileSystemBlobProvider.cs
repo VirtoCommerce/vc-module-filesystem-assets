@@ -32,7 +32,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         public FileSystemBlobProvider(
            IOptions<FileSystemBlobOptions> options,
            IFileExtensionService fileExtensionService,
-           IEventPublisher eventPublisher): this(options, fileExtensionService, eventPublisher, NullLogger<FileSystemBlobProvider>.Instance)
+           IEventPublisher eventPublisher) : this(options, fileExtensionService, eventPublisher, NullLogger<FileSystemBlobProvider>.Instance)
         {
         }
 
@@ -388,7 +388,7 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
 
         public virtual string GetAbsoluteUrl(string inputUrl)
         {
-            ArgumentNullException.ThrowIfNull(nameof(inputUrl));
+            ArgumentNullException.ThrowIfNull(inputUrl);
 
             // do trim lead slash to prevent transform it to absolute file path on linux.
             if (Uri.TryCreate(inputUrl.TrimStart('/'), UriKind.Absolute, out var resultUri))
