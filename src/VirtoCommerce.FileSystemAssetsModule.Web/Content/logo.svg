@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="File System Assets">
+  <title>File System Assets</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="92%" y2="100%">
+      <stop offset="0%" stop-color="#5FD080"/>
+      <stop offset="100%" stop-color="#2FA85A"/>
+    </linearGradient>
+    <filter id="lift" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3.5" flood-color="#0B4F2A" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+
+  <g transform="translate(64,64)" filter="url(#lift)">
+    <!-- Drive enclosure -->
+    <rect x="-44" y="-32" width="88" height="64" rx="11" fill="#ffffff"/>
+    <!-- Disk platter -->
+    <circle cx="-14" cy="0" r="20" fill="#5FC8F5"/>
+    <circle cx="-14" cy="0" r="6" fill="#ffffff"/>
+    <!-- Read/write arm -->
+    <line x1="30" y1="-22" x2="-8" y2="-6" stroke="#9FB6CC" stroke-width="5" stroke-linecap="round"/>
+    <!-- Activity LEDs -->
+    <circle cx="30" cy="6" r="4" fill="#2FA85A"/>
+    <circle cx="30" cy="18" r="4" fill="#FFC24D"/>
+    <circle cx="30" cy="-6" r="4" fill="#E5484D"/>
+  </g>
+</svg>
