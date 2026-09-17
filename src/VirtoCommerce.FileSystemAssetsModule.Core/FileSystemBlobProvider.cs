@@ -310,6 +310,9 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             var srcPath = GetStoragePathFromUrl(srcUrl);
             var dstPath = GetStoragePathFromUrl(destUrl);
 
+            ValidatePath(srcPath);
+            ValidatePath(dstPath);
+
             if (srcPath != dstPath)
             {
                 if (Directory.Exists(srcPath) && !Directory.Exists(dstPath))
@@ -332,6 +335,10 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         {
             var srcPath = GetStoragePathFromUrl(srcUrl);
             var destPath = GetStoragePathFromUrl(destUrl);
+
+            ValidatePath(srcPath);
+            ValidatePath(destPath);
+            ValidateDestinationNotNestedInSource(srcPath, destPath);
 
             CopyDirectoryRecursive(srcPath, destPath);
         }
@@ -472,6 +479,24 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             if (!path.StartsWith(_storagePath))
             {
                 throw new PlatformException($"Invalid path {path}");
+            }
+        }
+
+        private static void ValidateDestinationNotNestedInSource(string sourcePath, string destPath)
+        {
+            var normalizedSource = Path.GetFullPath(sourcePath);
+            var normalizedDest = Path.GetFullPath(destPath);
+
+            var sourceWithSeparator = normalizedSource.EndsWith(Path.DirectorySeparatorChar)
+                ? normalizedSource
+                : normalizedSource + Path.DirectorySeparatorChar;
+
+            //Reject a destination located at or beneath the source. Otherwise the recursive
+            //copy re-enumerates its own output without bound (uncontrolled recursion / DoS).
+            if (string.Equals(normalizedDest, normalizedSource, StringComparison.OrdinalIgnoreCase) ||
+                normalizedDest.StartsWith(sourceWithSeparator, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new PlatformException($"Invalid destination path {normalizedDest}: cannot be nested within the source path {normalizedSource}.");
             }
         }
     }
