@@ -393,6 +393,66 @@ namespace VirtoCommerce.Platform.Tests.Assets
             await Assert.ThrowsAsync<PlatformException>(() => provider.CopyAsync("data", "data/nested"));
         }
 
+        /// <summary>
+        /// VCST-6016 (review #1): the containment check must use a directory-separator boundary,
+        /// otherwise a sibling directory whose path shares the root's string prefix escapes it.
+        /// </summary>
+        [Fact]
+        public async Task CopyAsync_WhenSourceTargetsSiblingSharingRootPrefix_ThrowsPlatformException()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            Directory.CreateDirectory(root);
+
+            // Sibling directory whose full path shares the storage-root string prefix ("...root" + "evil").
+            var siblingDir = root + "evil";
+            Directory.CreateDirectory(siblingDir);
+            await File.WriteAllTextAsync(Path.Combine(siblingDir, "secret.txt"), "top-secret", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await Assert.ThrowsAsync<PlatformException>(() => provider.CopyAsync("../rootevil", "exfil"));
+
+            Assert.False(File.Exists(Path.Combine(root, "exfil", "secret.txt")));
+        }
+
+        /// <summary>
+        /// VCST-6016 (review #3): a legitimate copy fully inside the root must keep working after
+        /// the added containment checks (guards against an over-rejection regression).
+        /// </summary>
+        [Fact]
+        public async Task CopyAsync_WithinRoot_CopiesFiles()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            var srcDir = Path.Combine(root, "data");
+            Directory.CreateDirectory(srcDir);
+            await File.WriteAllTextAsync(Path.Combine(srcDir, "file.txt"), "content", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await provider.CopyAsync("data", "data-copy");
+
+            Assert.True(File.Exists(Path.Combine(root, "data-copy", "file.txt")));
+        }
+
+        /// <summary>
+        /// VCST-6016 (review #3): a legitimate move fully inside the root must keep working.
+        /// </summary>
+        [Fact]
+        public async Task MoveAsyncPublic_WithinRoot_MovesDirectory()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            var srcDir = Path.Combine(root, "data");
+            Directory.CreateDirectory(srcDir);
+            await File.WriteAllTextAsync(Path.Combine(srcDir, "file.txt"), "content", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await provider.MoveAsyncPublic("data", "moved");
+
+            Assert.True(File.Exists(Path.Combine(root, "moved", "file.txt")));
+            Assert.False(Directory.Exists(srcDir));
+        }
+
         private void ValidateFailure<TOptions>(OptionsValidationException ex, string name = "", int count = 1, params string[] errorsToMatch)
         {
             Assert.Equal(typeof(TOptions), ex.OptionsType);
