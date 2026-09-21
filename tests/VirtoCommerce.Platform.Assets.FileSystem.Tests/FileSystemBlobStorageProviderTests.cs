@@ -9,6 +9,7 @@ using Moq;
 using VirtoCommerce.AssetsModule.Core.Assets;
 using VirtoCommerce.AssetsModule.Core.Services;
 using VirtoCommerce.FileSystemAssetsModule.Core;
+using VirtoCommerce.Platform.Core.Exceptions;
 using Xunit;
 
 namespace VirtoCommerce.Platform.Tests.Assets
@@ -277,6 +278,179 @@ namespace VirtoCommerce.Platform.Tests.Assets
             var blobUrlResolver = (IBlobUrlResolver)fsbProvider;
 
             Assert.Equal(absoluteUrl, blobUrlResolver.GetAbsoluteUrl(blobKey));
+        }
+
+        // VCST-6016: security tests for path-traversal (copy/move) and uncontrolled recursion.
+
+        private FileSystemBlobProvider BuildProviderWithRoot(string rootPath)
+        {
+            var mockFileExtensionService = new Mock<IFileExtensionService>();
+            mockFileExtensionService.Setup(service => service.IsExtensionAllowedAsync(It.IsAny<string>())).ReturnsAsync(true);
+
+            var options = new OptionsWrapper<FileSystemBlobOptions>(new FileSystemBlobOptions
+            {
+                PublicUrl = "https://localhost:5001/assets",
+                RootPath = rootPath,
+            });
+
+            return new FileSystemBlobProvider(options, mockFileExtensionService.Object, null);
+        }
+
+        /// <summary>
+        /// VCST-6016 (Defect 2): Copy must reject a source that escapes the storage root,
+        /// otherwise an attacker can read arbitrary directories into the served content root.
+        /// </summary>
+        [Fact]
+        public async Task CopyAsync_WhenSourcePathTraversesOutsideRoot_ThrowsPlatformException()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            Directory.CreateDirectory(root);
+
+            // "secret" directory lives OUTSIDE the storage root
+            var outsideDir = Path.Combine(_tempDirectory, "outside");
+            Directory.CreateDirectory(outsideDir);
+            await File.WriteAllTextAsync(Path.Combine(outsideDir, "secret.txt"), "top-secret", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await Assert.ThrowsAsync<PlatformException>(() => provider.CopyAsync("../outside", "exfil"));
+
+            // Nothing must have been exfiltrated into the root.
+            Assert.False(File.Exists(Path.Combine(root, "exfil", "secret.txt")));
+        }
+
+        /// <summary>
+        /// VCST-6016 (Defect 2): Copy must reject a destination that escapes the storage root.
+        /// </summary>
+        [Fact]
+        public async Task CopyAsync_WhenDestinationPathTraversesOutsideRoot_ThrowsPlatformException()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            var srcDir = Path.Combine(root, "data");
+            Directory.CreateDirectory(srcDir);
+            await File.WriteAllTextAsync(Path.Combine(srcDir, "file.txt"), "content", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await Assert.ThrowsAsync<PlatformException>(() => provider.CopyAsync("data", "../escaped"));
+
+            Assert.False(Directory.Exists(Path.Combine(_tempDirectory, "escaped")));
+        }
+
+        /// <summary>
+        /// VCST-6016 (Defect 2): Move must reject a source that escapes the storage root.
+        /// </summary>
+        [Fact]
+        public async Task MoveAsyncPublic_WhenSourcePathTraversesOutsideRoot_ThrowsPlatformException()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            Directory.CreateDirectory(root);
+
+            var outsideDir = Path.Combine(_tempDirectory, "outside-move");
+            Directory.CreateDirectory(outsideDir);
+            await File.WriteAllTextAsync(Path.Combine(outsideDir, "secret.txt"), "top-secret", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await Assert.ThrowsAsync<PlatformException>(() => provider.MoveAsyncPublic("../outside-move", "moved"));
+
+            Assert.False(Directory.Exists(Path.Combine(root, "moved")));
+        }
+
+        /// <summary>
+        /// VCST-6016 (Defect 2): Move must reject a destination that escapes the storage root.
+        /// </summary>
+        [Fact]
+        public async Task MoveAsyncPublic_WhenDestinationPathTraversesOutsideRoot_ThrowsPlatformException()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            var srcDir = Path.Combine(root, "srcdir");
+            Directory.CreateDirectory(srcDir);
+            await File.WriteAllTextAsync(Path.Combine(srcDir, "file.txt"), "content", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await Assert.ThrowsAsync<PlatformException>(() => provider.MoveAsyncPublic("srcdir", "../escaped-move"));
+
+            Assert.False(Directory.Exists(Path.Combine(_tempDirectory, "escaped-move")));
+        }
+
+        /// <summary>
+        /// VCST-6016 (Defect 3): Copy must reject a destination nested beneath the source,
+        /// otherwise the recursive copy re-enumerates its own output without bound (DoS).
+        /// Both paths are inside the root here, so the containment check alone would allow it.
+        /// </summary>
+        [Fact]
+        public async Task CopyAsync_WhenDestinationNestedUnderSource_ThrowsPlatformException()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            var srcDir = Path.Combine(root, "data");
+            Directory.CreateDirectory(srcDir);
+            await File.WriteAllTextAsync(Path.Combine(srcDir, "file.txt"), "content", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await Assert.ThrowsAsync<PlatformException>(() => provider.CopyAsync("data", "data/nested"));
+        }
+
+        /// <summary>
+        /// VCST-6016 (review #1): the containment check must use a directory-separator boundary,
+        /// otherwise a sibling directory whose path shares the root's string prefix escapes it.
+        /// </summary>
+        [Fact]
+        public async Task CopyAsync_WhenSourceTargetsSiblingSharingRootPrefix_ThrowsPlatformException()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            Directory.CreateDirectory(root);
+
+            // Sibling directory whose full path shares the storage-root string prefix ("...root" + "evil").
+            var siblingDir = root + "evil";
+            Directory.CreateDirectory(siblingDir);
+            await File.WriteAllTextAsync(Path.Combine(siblingDir, "secret.txt"), "top-secret", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await Assert.ThrowsAsync<PlatformException>(() => provider.CopyAsync("../rootevil", "exfil"));
+
+            Assert.False(File.Exists(Path.Combine(root, "exfil", "secret.txt")));
+        }
+
+        /// <summary>
+        /// VCST-6016 (review #3): a legitimate copy fully inside the root must keep working after
+        /// the added containment checks (guards against an over-rejection regression).
+        /// </summary>
+        [Fact]
+        public async Task CopyAsync_WithinRoot_CopiesFiles()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            var srcDir = Path.Combine(root, "data");
+            Directory.CreateDirectory(srcDir);
+            await File.WriteAllTextAsync(Path.Combine(srcDir, "file.txt"), "content", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await provider.CopyAsync("data", "data-copy");
+
+            Assert.True(File.Exists(Path.Combine(root, "data-copy", "file.txt")));
+        }
+
+        /// <summary>
+        /// VCST-6016 (review #3): a legitimate move fully inside the root must keep working.
+        /// </summary>
+        [Fact]
+        public async Task MoveAsyncPublic_WithinRoot_MovesDirectory()
+        {
+            var root = Path.Combine(_tempDirectory, "root");
+            var srcDir = Path.Combine(root, "data");
+            Directory.CreateDirectory(srcDir);
+            await File.WriteAllTextAsync(Path.Combine(srcDir, "file.txt"), "content", TestContext.Current.CancellationToken);
+
+            var provider = BuildProviderWithRoot(root);
+
+            await provider.MoveAsyncPublic("data", "moved");
+
+            Assert.True(File.Exists(Path.Combine(root, "moved", "file.txt")));
+            Assert.False(Directory.Exists(srcDir));
         }
 
         private void ValidateFailure<TOptions>(OptionsValidationException ex, string name = "", int count = 1, params string[] errorsToMatch)
