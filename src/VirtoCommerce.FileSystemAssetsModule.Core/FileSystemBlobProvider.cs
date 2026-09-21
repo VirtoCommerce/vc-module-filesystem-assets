@@ -22,6 +22,12 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
     {
         public const string ProviderName = "FileSystem";
 
+        // Path comparison must match the host file system: case-insensitive on Windows,
+        // case-sensitive elsewhere. Using this avoids both traversal bypasses (under-matching)
+        // and rejecting legitimate paths (over-matching).
+        private static readonly StringComparison PathComparison =
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
         private readonly string _storagePath;
         private readonly string _basePublicUrl;
         private readonly IFileExtensionService _fileExtensionService;
@@ -310,6 +316,9 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
             var srcPath = GetStoragePathFromUrl(srcUrl);
             var dstPath = GetStoragePathFromUrl(destUrl);
 
+            ValidatePath(srcPath);
+            ValidatePath(dstPath);
+
             if (srcPath != dstPath)
             {
                 if (Directory.Exists(srcPath) && !Directory.Exists(dstPath))
@@ -332,6 +341,10 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         {
             var srcPath = GetStoragePathFromUrl(srcUrl);
             var destPath = GetStoragePathFromUrl(destUrl);
+
+            ValidatePath(srcPath);
+            ValidatePath(destPath);
+            ValidateDestinationNotNestedInSource(srcPath, destPath);
 
             CopyDirectoryRecursive(srcPath, destPath);
         }
@@ -467,11 +480,33 @@ namespace VirtoCommerce.FileSystemAssetsModule.Core
         protected void ValidatePath(string path)
         {
             path = Path.GetFullPath(path);
-            //Do not allow the use paths located above of  the defined storagePath folder
-            //for security reason (avoid the file structure manipulation through using relative paths)
-            if (!path.StartsWith(_storagePath))
+            //Do not allow the use paths located above of the defined storagePath folder
+            //for security reason (avoid the file structure manipulation through using relative paths).
+            //The separator boundary prevents a sibling directory that merely shares the root's
+            //string prefix (e.g. "<root>-evil") from passing the check.
+            var rootWithSeparator = _storagePath + Path.DirectorySeparatorChar;
+            if (!string.Equals(path, _storagePath, PathComparison) &&
+                !path.StartsWith(rootWithSeparator, PathComparison))
             {
                 throw new PlatformException($"Invalid path {path}");
+            }
+        }
+
+        private static void ValidateDestinationNotNestedInSource(string sourcePath, string destPath)
+        {
+            var normalizedSource = Path.GetFullPath(sourcePath);
+            var normalizedDest = Path.GetFullPath(destPath);
+
+            var sourceWithSeparator = normalizedSource.EndsWith(Path.DirectorySeparatorChar)
+                ? normalizedSource
+                : normalizedSource + Path.DirectorySeparatorChar;
+
+            //Reject a destination located at or beneath the source. Otherwise the recursive
+            //copy re-enumerates its own output without bound (uncontrolled recursion / DoS).
+            if (string.Equals(normalizedDest, normalizedSource, PathComparison) ||
+                normalizedDest.StartsWith(sourceWithSeparator, PathComparison))
+            {
+                throw new PlatformException($"Invalid destination path {normalizedDest}: cannot be nested within the source path {normalizedSource}.");
             }
         }
     }
